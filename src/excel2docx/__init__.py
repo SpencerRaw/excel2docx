@@ -9,5 +9,5 @@ Domain-agnostic. Config-driven. LLM is optional — rule-based transforms
 work for purely mechanical field mapping.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = ["parser", "transformer", "generator", "pipeline"]

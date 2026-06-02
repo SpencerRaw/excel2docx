@@ -86,18 +86,213 @@ def run(
     }
 
 
+SAMPLE_CONFIG_YAML = r"""# =============================================================================
+# excel2docx Pipeline Configuration
+# =============================================================================
+# This is a well-commented template. Edit it to match your Excel workbook.
+#
+# Usage:
+#   excel2docx --excel data.xlsx --config this_config.yaml --output report.docx
+#   excel2docx --excel data.xlsx --config this_config.yaml --output report.docx --debug
+#
+# Pipeline stages:
+#   1. Parser   — reads Excel sheets according to schema below
+#   2. Transform — rule-based field mapping (or LLM-powered narrative generation)
+#   3. Generator — produces formatted .docx from structured data + template
+# =============================================================================
+
+# ── Parser: define which sheets/columns to read ─────────────────────────────
+parser:
+  sheets:
+    # Each entry defines one sheet to read.
+    - sheet_name: "Sheet1"          # Exact or partial sheet name (fuzzy match)
+      output_name: "data"           # Name to use in transform references
+      header_row: 1                 # Row number (1-indexed) containing headers
+      data_start_row: 2             # First data row
+      # data_end_row: 100           # Optional: last data row (omit to scan all)
+      # skip_empty_rows: true       # Skip rows where all cells are empty
+      # skip_pattern: "^TOTAL"      # Optional: regex to skip rows
+      columns:
+        # Column mapping — three ways to reference columns:
+        # 1. By zero-based index
+        - col: 0
+          name: "id"                # Output field name
+          type: str                 # str, int, float, date
+          # required: true          # Optional: flag required fields
+          # aliases: ["Identifier", "ID"]  # Optional: alternate header names
+        - col: 1
+          name: "category"
+          type: str
+        - col: 2
+          name: "amount"
+          type: float
+        # 2. By column letter
+        # - col: "D"
+        #   name: "notes"
+        #   type: str
+        # 3. By header name matching (uses aliases)
+        # - name: "description"
+        #   type: str
+        #   aliases: ["Description", "Details", "Notes"]
+      aggregates:                   # Optional: compute aggregations
+        group_by: "category"        # Field to group by
+        metric: count               # count | sum(amount) | avg(amount)
+
+    # Example second sheet:
+    # - sheet_name: "Summary"
+    #   output_name: "summary"
+    #   header_row: 1
+    #   data_start_row: 2
+    #   columns:
+    #     - col: 0
+    #       name: "metric"
+    #       type: str
+    #     - col: 1
+    #       name: "value"
+    #       type: float
+
+# ── Transform: map parsed data to report fields ─────────────────────────────
+transform:
+  mode: rules                      # "rules" (mechanical) or "llm" (LLM-powered)
+
+  # --- Rules mode: mechanical field mapping (no LLM needed) ---
+  rules:
+    - field: "header.title"        # Dot-path output field
+      source: "metadata.total_rows" # Dot-path to parsed data
+      # format: "{value} entries"  # Optional: Python format string
+      # default: "0"               # Optional: fallback if source is missing
+
+    - field: "overview.count"
+      source: "metadata.total_rows"
+
+    # - field: "overview.summary"
+    #   source: "sheets.summary.rows.0.metric"
+    #   default: "No summary available"
+
+  # --- LLM mode: send data to an LLM for narrative generation ---
+  # mode: llm
+  # prompt_template: |
+  #   Generate a business report from the following data:
+  #   {{DATA}}
+  #
+  #   Format the output as:
+  #   - An executive summary paragraph
+  #   - Key findings as a list
+  #   - Recommendations
+  # llm_config:
+  #   model: gpt-4o
+  #   temperature: 0.3
+  #   max_tokens: 4000
+  #   base_url: https://api.openai.com/v1   # For OpenAI-compatible APIs
+  # output_schema:
+  #   type: object
+  #   properties:
+  #     executive_summary: {type: string}
+  #     key_findings: {type: array, items: {type: string}}
+  #     recommendations: {type: array, items: {type: string}}
+
+# ── Template: DOCX layout and formatting ────────────────────────────────────
+template:
+  page:
+    size: A4                       # A4 or letter
+    margins: {top: 2, bottom: 2, left: 2.5, right: 2}  # cm
+    font: Calibri
+    font_size: 10
+
+  title:
+    text: "Daily Operations Report"
+    size: 18
+    color: "#003366"
+    alignment: center              # center, left, right
+
+  # subtitle:
+  #   text: "Automated Summary"
+  #   size: 13
+  #   color: "#003366"
+
+  # meta_fields:                   # Key-value metadata block
+  #   - label: "Date:"
+  #     source: "header.date"
+  #   - label: "Total:"
+  #     source: "overview.count"
+
+  sections:
+    - heading: "Overview"
+      # heading_style: styled-header  # styled-header (dark bg) or plain
+      # heading_color: "#2F5496"
+      elements:
+        - type: paragraph
+          text: "Report overview goes here."
+
+        # - type: paragraph
+        #   text: "Total entries: {value}"
+        #   source: "overview.count"
+
+        # - type: key_value         # Renders dict as key: value pairs
+        #   source: "sheets.data.aggregates"
+
+        # - type: table             # Renders list[dict] as a table
+        #   source: "sheets.data.rows"
+        #   columns:
+        #     - {field: "id", header: "ID", width_pct: 20}
+        #     - {field: "category", header: "Category", width_pct: 40}
+        #     - {field: "amount", header: "Amount", width_pct: 40}
+
+        # - type: list              # Renders list as bullet points
+        #   source: "some_list_field"
+        #   item_format: "- {value}"
+
+        # - type: comments          # Renders a list with a label
+        #   source: "data.comments"
+        #   label: "Notes"
+        #   empty_text: "Nothing to report"
+
+  footer:
+    text: "Confidential — For Internal Use Only"
+    include_timestamp: true
+
+# ── Metadata: injected into template placeholders ───────────────────────────
+metadata:
+  generated_at: "auto"
+  generator: "excel2docx"
+"""
+
+
 def main():
     """CLI entry point."""
     ap = argparse.ArgumentParser(
         description="excel2docx — General-purpose Excel-to-DOCX report pipeline"
     )
-    ap.add_argument("--excel", required=True, help="Path to Excel workbook")
-    ap.add_argument("--config", required=True, help="Path to pipeline config (YAML/JSON)")
-    ap.add_argument("--output", required=True, help="Output .docx path")
+
+    # Mutually exclusive: either --init OR the pipeline args
+    group = ap.add_mutually_exclusive_group()
+    group.add_argument(
+        "--init", action="store_true",
+        help="Generate a sample config YAML and exit. Use --output to write to a file."
+    )
+    # These are required unless --init
+    ap.add_argument("--excel", default=None, help="Path to Excel workbook")
+    ap.add_argument("--config", default=None, help="Path to pipeline config (YAML/JSON)")
+    ap.add_argument("--output", default=None, help="Output .docx path (or output path for --init config)")
     ap.add_argument("--debug", action="store_true", help="Save intermediate JSON files")
     ap.add_argument("--api-key", default=None, help="LLM API key (if using LLM mode)")
 
     args = ap.parse_args()
+
+    # Handle --init
+    if args.init:
+        if args.output:
+            out_path = Path(args.output)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(SAMPLE_CONFIG_YAML)
+            print(f"Sample config written to: {out_path}")
+        else:
+            print(SAMPLE_CONFIG_YAML)
+        return 0
+
+    # Validate pipeline args
+    if not args.excel or not args.config or not args.output:
+        ap.error("--excel, --config, and --output are required (or use --init to generate a config)")
 
     # LLM client factory (if config requires it)
     config = load_config(args.config)
