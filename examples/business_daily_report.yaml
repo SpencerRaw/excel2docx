@@ -1,0 +1,103 @@
+# Example: Business daily report from Excel
+# Demonstrates rule-based mode — no LLM needed
+
+parser:
+  sheets:
+    - sheet_name: "Daily Log"
+      output_name: "logs"
+      header_row: 2
+      data_start_row: 3
+      columns:
+        - col: 0
+          name: "ref_id"
+          type: str
+          required: true
+        - col: 1
+          name: "category"
+          type: str
+        - col: 2
+          name: "department"
+          type: str
+        - col: 3
+          name: "description"
+          type: str
+      aggregates:
+        group_by: "department"
+        metric: count
+
+    - sheet_name: "Summary"
+      output_name: "summary"
+      header_row: 1
+      data_start_row: 2
+      columns:
+        - col: 0
+          name: "metric"
+          type: str
+        - col: 1
+          name: "value"
+          type: float
+
+transform:
+  mode: rules
+  rules:
+    - field: "header.date"
+      source: "metadata.generated_at"
+      format: "{value}"
+      default: "N/A"
+    - field: "overview.total_entries"
+      source: "metadata.total_rows"
+    - field: "overview.summary_text"
+      source: "sheets.summary.rows.0.description"
+      default: "No summary available"
+
+template:
+  page:
+    size: A4
+    margins: {top: 2, bottom: 2, left: 2.5, right: 2}
+    font: Calibri
+    font_size: 10
+
+  title:
+    text: "Daily Operations Report"
+    size: 18
+    color: "#003366"
+
+  subtitle:
+    text: "Automated Summary"
+    size: 13
+    color: "#003366"
+
+  meta_fields:
+    - label: "Date:"
+      source: "header.date"
+    - label: "Total Entries:"
+      source: "overview.total_entries"
+
+  sections:
+    - heading: "Overview"
+      elements:
+        - type: paragraph
+          source: "overview.summary_text"
+
+    - heading: "Department Breakdown"
+      elements:
+        - type: key_value
+          source: "sheets.logs.aggregates"
+
+    - heading: "Detailed Log"
+      elements:
+        - type: table
+          source: "sheets.logs.rows"
+          columns:
+            - {field: "ref_id", header: "Ref ID"}
+            - {field: "category", header: "Category"}
+            - {field: "department", header: "Department"}
+            - {field: "description", header: "Description"}
+
+  footer:
+    text: "Confidential — For Internal Use Only"
+    include_timestamp: true
+
+metadata:
+  generated_at: "auto"
+  generator: "excel2docx v0.1"
