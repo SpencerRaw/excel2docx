@@ -112,14 +112,44 @@ def _parse_sheet(ws, cfg: dict) -> list[dict]:
     for col_cfg in columns_cfg:
         output_name = col_cfg.get("name", col_cfg.get("col", ""))
         aliases = col_cfg.get("aliases", [output_name])
+        type_str = col_cfg.get("type", "str")
+        required = col_cfg.get("required", False)
 
+        # Mode 1: Direct column index (col: 0, col: 1, etc.)
+        if "col" in col_cfg:
+            col_val = col_cfg["col"]
+            if isinstance(col_val, int):
+                col_idx = col_val
+            elif isinstance(col_val, str) and col_val.isdigit():
+                col_idx = int(col_val)
+            else:
+                col_idx = None
+            if col_idx is not None:
+                header_map[col_idx] = {
+                    "name": output_name,
+                    "type": type_str,
+                    "required": required,
+                }
+                continue
+
+        # Mode 2: Column letter (col: "A", col: "B", etc.)
+        if "col" in col_cfg and isinstance(col_cfg["col"], str) and col_cfg["col"].isalpha():
+            col_idx = ord(col_cfg["col"].upper()) - ord("A")
+            header_map[col_idx] = {
+                "name": output_name,
+                "type": type_str,
+                "required": required,
+            }
+            continue
+
+        # Mode 3: Header name matching
         for alias in aliases:
             for idx, h in enumerate(header_values):
                 if h and alias.lower() == h.lower():
                     header_map[idx] = {
                         "name": output_name,
-                        "type": col_cfg.get("type", "str"),
-                        "required": col_cfg.get("required", False),
+                        "type": type_str,
+                        "required": required,
                     }
                     break
 
