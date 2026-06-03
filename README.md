@@ -125,3 +125,12 @@ pytest
 ## License
 
 MIT — SpencerRaw 2026
+
+## Contributing
+
+Issues and PRs welcome. Run tests before submitting:
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
