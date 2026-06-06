@@ -1,21 +1,37 @@
 {
   "required_sections": [
     "header",
-    "overview",
-    "financial"
+    "financial_summary",
+    "operational_overview",
+    "major_incidents",
+    "illegal_acts",
+    "table_games",
+    "security",
+    "cage_and_count",
+    "gaming_machines",
+    "food_and_beverage",
+    "surveillance_technical"
   ],
   "required_fields": {
-    "header": ["day_date", "total_entries"],
-    "overview": ["by_department", "summary"],
-    "financial": []
+    "header": ["day_date", "shift_managers"],
+    "financial_summary": ["mass_gaming", "vip_gaming"],
+    "operational_overview": ["focus_areas", "log_entries_count", "summary_text"],
+    "table_games": ["assistance_requests", "patron_disputes", "staff_errors", "comments"],
+    "security": ["coverage_requests", "medical_emergencies", "duress_alarms", "found_property", "comments"],
+    "cage_and_count": ["assistance_requests", "reported_variances", "staff_errors", "comments"],
+    "gaming_machines": ["jackpots", "reported_variances", "comments"],
+    "food_and_beverage": ["assistance_requests", "comments"],
+    "surveillance_technical": ["live_floor_walks", "surveillance_system_issues", "comments"]
   },
   "value_constraints": {
-    "header.total_entries": {"type": "int", "min": 1}
+    "operational_overview.log_entries_count": {"type": "int", "min": 1},
+    "table_games.assistance_requests": {"type": "int", "min": 0},
+    "security.duress_alarms": {"type": "int", "min": 0}
   },
   "forbidden_patterns": [
     "TODO",
     "FIXME",
-    "INSERT_VALUE_HERE",
-    "lorem ipsum"
+    "lorem ipsum",
+    "fill this in"
   ]
 }

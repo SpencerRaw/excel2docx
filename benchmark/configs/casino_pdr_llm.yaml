@@ -1,0 +1,409 @@
+# =============================================================================
+# Casino PDR — LLM Mode
+#
+# Usage:
+#   excel2docx --excel data.xlsx --config this_config.yaml --output pdr.docx --api-key sk-...
+#
+# This config mirrors the real casino PDR structure with all 14 sections.
+# LLM mode classifies log entries into departments, counts events per
+# counter category, and writes narrative comments with IN2026xxx references.
+# =============================================================================
+
+parser:
+  sheets:
+    - sheet_name: "Surv log"
+      output_name: "surveillance_log"
+      header_row: 2
+      data_start_row: 3
+      columns:
+        - col: 0
+          name: "ref_id"
+          type: str
+          required: true
+        - col: 1
+          name: "gaming_date"
+          type: str
+        - col: 2
+          name: "occurred_time"
+          type: str
+        - col: 3
+          name: "area"
+          type: str
+        - col: 4
+          name: "location"
+          type: str
+        - col: 5
+          name: "game"
+          type: str
+        - col: 6
+          name: "department"
+          type: str
+        - col: 7
+          name: "event"
+          type: str
+        - col: 8
+          name: "monitor_type"
+          type: str
+        - col: 9
+          name: "amount"
+          type: str
+        - col: 10
+          name: "category"
+          type: str
+        - col: 11
+          name: "description"
+          type: str
+        - col: 12
+          name: "mins"
+          type: str
+      aggregates:
+        group_by: "department"
+        metric: count
+
+    - sheet_name: "Won and lost"
+      output_name: "winners_losers"
+      header_row: 3
+      data_start_row: 3
+      data_end_row: 14
+      columns:
+        - col: 1
+          name: "market"
+          type: str
+        - col: 2
+          name: "rank"
+          type: str
+        - col: 3
+          name: "name"
+          type: str
+        - col: 4
+          name: "player_id"
+          type: str
+        - col: 5
+          name: "result"
+          type: str
+        - col: 6
+          name: "amount"
+          type: str
+      skip_empty_rows: false
+
+# ═══════════════════════════════════════════════════════════════
+transform:
+  mode: llm
+
+  prompt_template: |
+    You are a casino surveillance report writer.
+
+    Generate a Presidential Daily Report (PDR) JSON from the surveillance log data below.
+
+    === SURVEILLANCE LOG ===
+    {{ surveillance_log.rows }}
+
+    === WINNERS & LOSERS ===
+    {{ winners_losers.rows }}
+
+    === DEPARTMENT STATISTICS ===
+    {{ surveillance_log.aggregates }}
+
+    === OUTPUT FORMAT (MUST MATCH EXACTLY) ===
+    Return JSON with these exact keys. Every section is required.
+    {
+      "header": {"day_date": "Friday, 15 May 2026", "shift_managers": ["Pantry (Morning Shift)", "Peter (Day Shift)", "Ben (Night Shift)"]},
+      "financial_summary": {"mass_gaming": {"drop": "$0", "win_loss": "$0", "turnover": "$0"}, "vip_gaming": {"win_loss": "$0"}},
+      "operational_overview": {"focus_areas": "comma separated themes", "log_entries_count": 0, "summary_text": "one executive paragraph"},
+      "major_incidents": [{"location": "Pit 888, BA88802", "time": "15:23", "department": "Table Games", "details": "narrative text"}],
+      "illegal_acts": [{"location": "...", "time": "...", "department": "...", "details": "..."}],
+      "table_games": {"assistance_requests": 0, "patron_disputes": 0, "staff_errors": 0, "pit_view_audit": 0, "procedural_violations": 0, "incorrect_atom_inputs": 0, "comments": ["IN2026xxx: detailed comment per event"]},
+      "security": {"coverage_requests": 0, "medical_emergencies": 0, "physical_removals": 0, "patrons_asked_to_leave": 0, "duress_alarms": 0, "false_duress_alarms": 0, "fire_alarms": 0, "false_fire_alarms": 0, "procedural_violations": 0, "found_property": 0, "exclusions_issued": 0, "comments": []},
+      "cage_and_count": {"assistance_requests": 0, "reported_variances": 0, "staff_errors": 0, "procedural_violations": 0, "suspect_transactions": 0, "patron_disputes": 0, "comments": []},
+      "gaming_machines": {"jackpots": 0, "reported_variances": 0, "staff_errors": 0, "procedural_violations": 0, "assistance_requests": 0, "patron_disputes": 0, "comments": []},
+      "food_and_beverage": {"assistance_requests": 0, "reported_variances": 0, "staff_errors": 0, "procedural_violations": 0, "comments": []},
+      "surveillance_technical": {"live_floor_walks": 0, "surveillance_system_issues": 0, "comments": []}
+    }
+
+    === RULES ===
+    1. Use ONLY provided data. Do not fabricate names, amounts, or events.
+    2. Count real statistics from log entries. Each counter must match actual data.
+    3. Classify each log entry into the correct department section.
+    4. For each department, populate BOTH the named counters AND write detailed comments.
+    5. Comments must be professional with IN2026xxx references.
+    6. Include player LTD win/loss info in table_games comments where available.
+    7. Format all amounts with $ and commas (e.g., $5,000 not 5000).
+    8. The "focus_areas" field should be a concise comma-separated list of today's key themes.
+    9. The "summary_text" should be one paragraph of executive-level highlights.
+    10. Major incidents: events involving theft, injury, illegal acts, duress alarms, large disputes.
+    11. Do NOT include "Nothing to report" sections in major_incidents/illegal_acts unless absolutely empty.
+    12. Return ONLY valid JSON. No markdown fences. No trailing commas.
+
+  llm_config:
+    model: deepseek-chat
+    temperature: 0.3
+    max_tokens: 8000
+    base_url: https://api.deepseek.com/v1
+
+  output_schema:
+    type: object
+    required:
+      - header
+      - financial_summary
+      - operational_overview
+      - major_incidents
+      - illegal_acts
+      - table_games
+      - security
+      - cage_and_count
+      - gaming_machines
+      - food_and_beverage
+      - surveillance_technical
+    properties:
+      header:
+        type: object
+        required: [day_date, shift_managers]
+        properties:
+          day_date: {type: string}
+          shift_managers:
+            type: array
+            items: {type: string}
+      financial_summary:
+        type: object
+        properties:
+          mass_gaming:
+            type: object
+            properties:
+              drop: {type: string}
+              win_loss: {type: string}
+              turnover: {type: string}
+          vip_gaming:
+            type: object
+            properties:
+              win_loss: {type: string}
+      operational_overview:
+        type: object
+        required: [focus_areas, log_entries_count, summary_text]
+        properties:
+          focus_areas: {type: string}
+          log_entries_count: {type: integer}
+          summary_text: {type: string}
+      major_incidents:
+        type: array
+        items:
+          type: object
+          properties:
+            location: {type: string}
+            time: {type: string}
+            department: {type: string}
+            details: {type: string}
+      illegal_acts:
+        type: array
+        items:
+          type: object
+          properties:
+            location: {type: string}
+            time: {type: string}
+            department: {type: string}
+            details: {type: string}
+      table_games:
+        type: object
+        properties:
+          assistance_requests: {type: integer}
+          patron_disputes: {type: integer}
+          staff_errors: {type: integer}
+          pit_view_audit: {type: integer}
+          procedural_violations: {type: integer}
+          incorrect_atom_inputs: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+      security:
+        type: object
+        properties:
+          coverage_requests: {type: integer}
+          medical_emergencies: {type: integer}
+          physical_removals: {type: integer}
+          patrons_asked_to_leave: {type: integer}
+          duress_alarms: {type: integer}
+          false_duress_alarms: {type: integer}
+          fire_alarms: {type: integer}
+          false_fire_alarms: {type: integer}
+          procedural_violations: {type: integer}
+          found_property: {type: integer}
+          exclusions_issued: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+      cage_and_count:
+        type: object
+        properties:
+          assistance_requests: {type: integer}
+          reported_variances: {type: integer}
+          staff_errors: {type: integer}
+          procedural_violations: {type: integer}
+          suspect_transactions: {type: integer}
+          patron_disputes: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+      gaming_machines:
+        type: object
+        properties:
+          jackpots: {type: integer}
+          reported_variances: {type: integer}
+          staff_errors: {type: integer}
+          procedural_violations: {type: integer}
+          assistance_requests: {type: integer}
+          patron_disputes: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+      food_and_beverage:
+        type: object
+        properties:
+          assistance_requests: {type: integer}
+          reported_variances: {type: integer}
+          staff_errors: {type: integer}
+          procedural_violations: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+      surveillance_technical:
+        type: object
+        properties:
+          live_floor_walks: {type: integer}
+          surveillance_system_issues: {type: integer}
+          comments:
+            type: array
+            items: {type: string}
+
+# ═══════════════════════════════════════════════════════════════
+template:
+  page:
+    size: A4
+    margins: {top: 2, bottom: 2, left: 2.5, right: 2}
+    font: Calibri
+    font_size: 10
+
+  title:
+    text: "OPERATION P.D.R"
+    size: 18
+    color: "#003366"
+
+  subtitle:
+    text: "PRESIDENTIAL DAILY REPORT"
+    size: 13
+    color: "#003366"
+
+  meta_fields:
+    - label: "Day / Date:"
+      source: "header.day_date"
+    - label: "Shift Managers"
+      source: "header.shift_managers"
+
+  sections:
+    # ── Financial Summary ──
+    - heading: "Financial Summary (Estimated - Extracted From SYCO)"
+      elements:
+        - type: financial_table
+          source: "financial_summary"
+
+    # ── Operational Overview ──
+    - heading: "Operational Overview"
+      elements:
+        - type: paragraph
+          text: "Focus Areas: {value}"
+          source: "operational_overview.focus_areas"
+        - type: paragraph
+          text: "Log Entries: {value}"
+          source: "operational_overview.log_entries_count"
+        - type: paragraph
+          text: "{value}"
+          source: "operational_overview.summary_text"
+
+    # ── Major Incidents ──
+    - heading: "Major Incidents"
+      elements:
+        - type: comments
+          source: "major_incidents"
+          label: ""
+          empty_text: "Nothing to report"
+          # custom render: each incident has location/time/department/details
+
+    # ── Illegal Acts ──
+    - heading: "Illegal Acts"
+      elements:
+        - type: comments
+          source: "illegal_acts"
+          label: ""
+          empty_text: "Nothing to report"
+
+    # ── Table Games ──
+    - heading: "Table Games"
+      elements:
+        - type: key_value
+          source: "table_games"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "table_games.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+    # ── Security ──
+    - heading: "Security"
+      elements:
+        - type: key_value
+          source: "security"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "security.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+    # ── Cage and Count ──
+    - heading: "Cage and Count"
+      elements:
+        - type: key_value
+          source: "cage_and_count"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "cage_and_count.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+    # ── Gaming Machines & City Club ──
+    - heading: "Gaming Machines & City Club"
+      elements:
+        - type: key_value
+          source: "gaming_machines"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "gaming_machines.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+    # ── Food and Beverage ──
+    - heading: "Food and Beverage"
+      elements:
+        - type: key_value
+          source: "food_and_beverage"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "food_and_beverage.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+    # ── Surveillance & Technical ──
+    - heading: "Surveillance and Technical Issues"
+      elements:
+        - type: key_value
+          source: "surveillance_technical"
+          exclude_keys: ["comments"]
+        - type: comments
+          source: "surveillance_technical.comments"
+          label: "Comments"
+          empty_text: "Nothing to report"
+
+  footer:
+    text: "Surveillance PDR — Private & Confidential"
+    include_timestamp: true
+
+metadata:
+  generated_at: "Friday, 15 May 2026"
+  generator: "excel2docx + DeepSeek LLM"

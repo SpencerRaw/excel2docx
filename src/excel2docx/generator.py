@@ -191,10 +191,13 @@ def _render_section(doc, section_cfg: dict, data: dict, base_size: int):
 
         elif el_type == "key_value":
             items = _resolve(data, source) if source else {}
+            exclude_keys = set(element.get("exclude_keys", []))
             if isinstance(items, dict):
                 for k, v in items.items():
+                    if k in exclude_keys:
+                        continue
                     p = doc.add_paragraph()
-                    r1 = p.add_run(f"{k}: ")
+                    r1 = p.add_run(f"{_label(k)}: ")
                     r1.bold = True
                     r1.font.size = Pt(base_size)
                     r2 = p.add_run(str(v))
@@ -222,14 +225,51 @@ def _render_section(doc, section_cfg: dict, data: dict, base_size: int):
             items = _resolve(data, source) if source else []
             if isinstance(items, list):
                 if items:
-                    cp = doc.add_paragraph()
-                    cr = cp.add_run(element.get("label", "Comments") + ":")
-                    cr.bold = True
-                    cr.font.size = Pt(base_size)
+                    label = element.get("label", "")
+                    if label:
+                        cp = doc.add_paragraph()
+                        cr = cp.add_run(label + ":")
+                        cr.bold = True
+                        cr.font.size = Pt(base_size)
                     for c in items:
-                        _add_para(doc, str(c), size=base_size - 1, after=4)
+                        if isinstance(c, dict) and ("location" in c or "details" in c):
+                            # Incident-style dict: render as bold header + body
+                            _render_incident(doc, c, base_size)
+                        else:
+                            _add_para(doc, str(c), size=base_size - 1, after=4)
                 else:
                     _add_para(doc, element.get("empty_text", "Nothing to report"), size=base_size - 1)
+
+        elif el_type == "financial_table":
+            # Render nested {mass_gaming: {drop, win_loss, turnover}, vip_gaming: {win_loss}}
+            fin = _resolve(data, source) if source else {}
+            if isinstance(fin, dict):
+                mg = fin.get("mass_gaming", {})
+                vg = fin.get("vip_gaming", {})
+                tbl = doc.add_table(rows=3, cols=4)
+                tbl.style = "Light Grid Accent 1"
+                headers = ["", "Drop", "Win / Loss", "Total Turnover"]
+                for i, h in enumerate(headers):
+                    cell = tbl.rows[0].cells[i]
+                    cell.text = h
+                    for pp in cell.paragraphs:
+                        for rr in pp.runs:
+                            rr.bold = True
+                            rr.font.size = Pt(9)
+                # Mass Gaming row
+                tbl.rows[1].cells[0].text = "Mass Gaming"
+                tbl.rows[1].cells[1].text = str(mg.get("drop", ""))
+                tbl.rows[1].cells[2].text = str(mg.get("win_loss", ""))
+                tbl.rows[1].cells[3].text = str(mg.get("turnover", ""))
+                # VIP Gaming row
+                tbl.rows[2].cells[0].text = "VIP Gaming"
+                tbl.rows[2].cells[2].text = str(vg.get("win_loss", ""))
+                for row in tbl.rows:
+                    for cell in row.cells:
+                        for pp in cell.paragraphs:
+                            for rr in pp.runs:
+                                rr.font.size = Pt(9)
+                doc.add_paragraph()
 
 
 def _add_table(doc, rows: list[dict], columns: list[dict]):
@@ -289,6 +329,29 @@ def _add_para(doc, text: str, bold: bool = False, size: int = 10, align=None, af
     r.bold = bold
     p.paragraph_format.space_after = Pt(after)
     return p
+
+
+def _label(key: str) -> str:
+    """Convert snake_case key to Title Case label."""
+    return key.replace("_", " ").title()
+
+
+def _render_incident(doc, inc: dict, base_size: int):
+    """Render an incident dict (location/time/department/details) as bold header + body."""
+    loc = inc.get("location") or inc.get("log_id") or ""
+    tm = inc.get("time") or inc.get("type") or ""
+    dept = inc.get("department") or ""
+    details = inc.get("details") or inc.get("description") or ""
+
+    header_text = f"ID: {loc}"
+    if tm:
+        header_text += f" | Type: {tm}"
+    if dept:
+        header_text += f" | Dept: {dept}"
+
+    _add_para(doc, header_text, bold=True, size=base_size)
+    if details:
+        _add_para(doc, details, size=base_size, after=6)
 
 
 def _alignment(s: str):
