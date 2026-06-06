@@ -29,3 +29,7 @@ Repository = "https://github.com/SpencerRaw/excel2docx"
 
 [project.scripts]
 excel2docx = "excel2docx.pipeline:main"
+benchmark = "benchmark.runner:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "benchmark"]

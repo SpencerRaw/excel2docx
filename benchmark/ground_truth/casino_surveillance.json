@@ -1,0 +1,86 @@
+{
+  "sheets": {
+    "Surv log": {
+      "row_count": 17,
+      "columns": [
+        "ref_id",
+        "gaming_date",
+        "occurred_time",
+        "area",
+        "location",
+        "game",
+        "department",
+        "event",
+        "monitor_type",
+        "amount",
+        "category",
+        "description",
+        "mins"
+      ],
+      "column_types": {
+        "ref_id": "str",
+        "gaming_date": "str",
+        "occurred_time": "str",
+        "area": "str",
+        "location": "str",
+        "game": "str",
+        "department": "str",
+        "event": "str",
+        "monitor_type": "str",
+        "amount": "str",
+        "category": "str",
+        "description": "str",
+        "mins": "str"
+      },
+      "non_empty_cells": 146,
+      "sample_rows": [
+        {
+          "Ref ID": "IN2026001",
+          "Gaming Date": "2026-05-15",
+          "Occurred Time": "15:23:00",
+          "Area": "Pit 888",
+          "Location": "88802",
+          "Game": "BA",
+          "Department": "Table Games",
+          "Event": "Error",
+          "Monitor Type": "Review",
+          "Amount": "500",
+          "Description": "Routine review requested. No anomalies found."
+        },
+        {
+          "Ref ID": "IN2026034",
+          "Gaming Date": "2026-05-15",
+          "Occurred Time": "16:56:00",
+          "Area": "Lv23",
+          "Location": "38056",
+          "Game": "BA",
+          "Department": "Table Games",
+          "Event": "Revenue Division",
+          "Monitor Type": "Monitored",
+          "Description": "VIP high action. Patron won significant amount. Nothing suspicious noted."
+        }
+      ]
+    },
+    "Won and lost": {
+      "row_count": 12,
+      "columns": [
+        "market",
+        "rank",
+        "name",
+        "player_id",
+        "result",
+        "amount"
+      ],
+      "column_types": {
+        "market": "str",
+        "rank": "str",
+        "name": "str",
+        "player_id": "str",
+        "result": "str",
+        "amount": "str"
+      },
+      "non_empty_cells": 84,
+      "sample_rows": []
+    }
+  }
+}

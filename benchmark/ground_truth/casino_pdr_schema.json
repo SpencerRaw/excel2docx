@@ -1,0 +1,21 @@
+{
+  "required_sections": [
+    "header",
+    "overview",
+    "financial"
+  ],
+  "required_fields": {
+    "header": ["day_date", "total_entries"],
+    "overview": ["by_department", "summary"],
+    "financial": []
+  },
+  "value_constraints": {
+    "header.total_entries": {"type": "int", "min": 1}
+  },
+  "forbidden_patterns": [
+    "TODO",
+    "FIXME",
+    "INSERT_VALUE_HERE",
+    "lorem ipsum"
+  ]
+}

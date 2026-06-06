@@ -1,0 +1,177 @@
+# =============================================================================
+# Casino PDR Pipeline Config
+# excel2docx --excel benchmark/test_data/casino_surveillance_log.xlsx --config this_file.yaml --output pdr.docx
+# =============================================================================
+
+parser:
+  sheets:
+    # Sheet 1: Surveillance log
+    - sheet_name: "Surv log"
+      output_name: "surveillance_log"
+      header_row: 2          # row with column headers
+      data_start_row: 3      # first data row
+      columns:
+        - col: 0
+          name: "ref_id"
+          type: str
+          required: true
+        - col: 1
+          name: "gaming_date"
+          type: str
+        - col: 2
+          name: "occurred_time"
+          type: str
+        - col: 3
+          name: "area"
+          type: str
+        - col: 4
+          name: "location"
+          type: str
+        - col: 5
+          name: "game"
+          type: str
+        - col: 6
+          name: "department"
+          type: str
+        - col: 7
+          name: "event"
+          type: str
+        - col: 8
+          name: "monitor_type"
+          type: str
+        - col: 9
+          name: "amount"
+          type: str
+        - col: 10
+          name: "category"
+          type: str
+        - col: 11
+          name: "description"
+          type: str
+        - col: 12
+          name: "mins"
+          type: str
+      aggregates:
+        group_by: "department"
+        metric: count
+
+    # Sheet 2: Winners and losers
+    - sheet_name: "Won and lost"
+      output_name: "winners_losers"
+      header_row: 3          # data starts here for this sheet
+      data_start_row: 3
+      data_end_row: 14
+      columns:
+        - col: 1
+          name: "market"
+          type: str
+        - col: 2
+          name: "rank"
+          type: str
+        - col: 3
+          name: "name"
+          type: str
+        - col: 4
+          name: "player_id"
+          type: str
+        - col: 5
+          name: "result"
+          type: str
+        - col: 6
+          name: "amount"
+          type: str
+      skip_empty_rows: false
+
+transform:
+  mode: rules
+  rules:
+    # Header
+    - field: "header.day_date"
+      source: "metadata.generated_at"
+      format: "{value}"
+      default: "15 May 2026"
+
+    - field: "header.shift_managers"
+      source: "metadata.generated_at"
+      default: "Pantry (Morning), Peter (Day), Ben (Night)"
+
+    - field: "header.total_entries"
+      source: "metadata.total_rows"
+
+    # Department breakdown
+    - field: "overview.by_department"
+      source: "sheets.surveillance_log.aggregates"
+
+    - field: "overview.summary"
+      default: "Operational summary based on surveillance log data."
+
+    # Winners/losers
+    - field: "financial.mass_market_winners"
+      source: "sheets.winners_losers.rows.0"
+      default: ""
+
+    - field: "financial.mass_market_losers"
+      source: "sheets.winners_losers.rows.5"
+      default: ""
+
+    - field: "financial.vip_market_winners"
+      source: "sheets.winners_losers.rows.6"
+      default: ""
+
+    - field: "financial.vip_market_losers"
+      source: "sheets.winners_losers.rows.11"
+      default: ""
+
+template:
+  page:
+    size: A4
+    margins: {top: 2, bottom: 2, left: 2.5, right: 2}
+    font: Calibri
+    font_size: 10
+
+  title:
+    text: "CASINO SURVEILLANCE PDR"
+    size: 18
+    color: "#003366"
+
+  subtitle:
+    text: "Presidential Daily Report"
+    size: 13
+    color: "#003366"
+
+  meta_fields:
+    - label: "Date:"
+      source: "header.day_date"
+    - label: "Total Entries:"
+      source: "header.total_entries"
+
+  sections:
+    - heading: "Operational Overview"
+      elements:
+        - type: paragraph
+          text: "{value}"
+          source: "overview.summary"
+
+    - heading: "Department Breakdown"
+      elements:
+        - type: key_value
+          source: "overview.by_department"
+
+    - heading: "Surveillance Log"
+      elements:
+        - type: table
+          source: "sheets.surveillance_log.rows"
+          columns:
+            - {field: "ref_id", header: "Ref ID"}
+            - {field: "department", header: "Department"}
+            - {field: "event", header: "Event"}
+            - {field: "area", header: "Area"}
+            - {field: "amount", header: "Amount"}
+
+  footer:
+    text: "Surveillance PDR — Private & Confidential"
+    include_timestamp: true
+
+metadata:
+  generated_at: "Friday, 15 May 2026"
+  generator: "excel2docx"
