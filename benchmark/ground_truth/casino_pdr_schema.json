@@ -24,7 +24,7 @@
     "surveillance_technical": ["live_floor_walks", "surveillance_system_issues", "comments"]
   },
   "value_constraints": {
-    "operational_overview.log_entries_count": {"type": "int", "min": 1},
+    "operational_overview.log_entries_count": {"type": "int", "min": 0},
     "table_games.assistance_requests": {"type": "int", "min": 0},
     "security.duress_alarms": {"type": "int", "min": 0}
   },
