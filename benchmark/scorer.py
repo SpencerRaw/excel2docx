@@ -282,24 +282,52 @@ def score_report_quality(
         s.section_completeness_pct = 100.0  # no requirements = full score
 
     # --- Value accuracy ---
-    # For LLM reports: check that numeric values trace back to parsed data
+    # Check numeric values in report against ground truth AND computed aggregates
     value_checks_total = 0
     value_checks_passed = 0
 
-    # Check all numeric values in report against ground truth
+    # Build set of ALL allowable values:
+    #   (a) raw values from ground truth sheets
+    #   (b) computed aggregates from parsed data (totals, counts, etc.)
+    allowable_values = set()
+
     if ground_truth:
         gt_sheets = ground_truth.get("sheets", {})
-        all_gt_values = _collect_all_values(gt_sheets)
-        all_report_values = _collect_all_values(report_data)
+        for v in _collect_all_values(gt_sheets):
+            if isinstance(v, (int, float)):
+                allowable_values.add(round(v, 2))
 
-        for rv in all_report_values:
-            if isinstance(rv, (int, float)):
-                value_checks_total += 1
-                # Check if this value appears anywhere in ground truth
-                if _value_exists_in(rv, all_gt_values):
-                    value_checks_passed += 1
-                else:
-                    s.value_mismatches.append(f"Value {rv!r} not found in source data")
+    # Computed values from parsed data: total_rows, per-sheet row counts, aggregates
+    # Also allow 0 and 1 as legitimate counter defaults
+    allowable_values.add(0)
+    allowable_values.add(1)
+    if parsed_data:
+        meta = parsed_data.get("metadata", {})
+        if isinstance(meta.get("total_rows"), (int, float)):
+            allowable_values.add(meta["total_rows"])
+        for sn, sd in parsed_data.get("sheets", {}).items():
+            if isinstance(sd.get("aggregates"), dict):
+                for v in sd["aggregates"].values():
+                    if isinstance(v, (int, float)):
+                        allowable_values.add(v)
+            rows = sd.get("rows", [])
+            if rows:
+                allowable_values.add(len(rows))
+
+    all_report_values = _collect_all_values(report_data)
+
+    for rv in all_report_values:
+        if isinstance(rv, (int, float)):
+            value_checks_total += 1
+            rv_rounded = round(rv, 2)
+            if rv_rounded in allowable_values:
+                value_checks_passed += 1
+            elif _value_exists_in(rv, list(allowable_values)):
+                value_checks_passed += 1
+            else:
+                s.value_mismatches.append(
+                    f"Value {rv!r} not found in source data or computed aggregates"
+                )
 
     s.value_accuracy_pct = _safe_pct(value_checks_passed, value_checks_total)
 
